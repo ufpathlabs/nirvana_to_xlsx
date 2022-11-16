@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+# !/usr/bin/env python3
 
 import argparse
 import json
@@ -16,27 +16,27 @@ def parse_sample_id_args():
 
     -s, --SAMPLE_ID  -- sample id
     -p, --PATH -- path to files
-    
+
     Return:
 
     args -- the parsed arguments
     """
     parser = argparse.ArgumentParser(
-        description = 'sample id for json data files and qc files'
+        description='sample id for json data files and qc files'
     )
     parser.add_argument(
         '-s',
-        metavar = '--SAMPLE_ID',
-        type = str,
-        help = 'the input sample id',
-        required = True
+        metavar='--SAMPLE_ID',
+        type=str,
+        help='the input sample id',
+        required=True
     )
     parser.add_argument(
         '-p',
-        metavar = '--PATH',
-        type = str,
-        help = 'the path to all files',
-        required = True
+        metavar='--PATH',
+        type=str,
+        help='the path to all files',
+        required=True
     )
     args = parser.parse_args()
     return args
@@ -52,7 +52,7 @@ def parse_transcripts(transcripts):
     Keyword arguments:
 
     transcripts -- the transcript dictionary for the variant
-    
+
     Return:
 
     transcript_name -- the name of the transcript
@@ -64,19 +64,31 @@ def parse_transcripts(transcripts):
     """
     if transcripts != 'NA':
         for transcript in transcripts:
-            try: source = transcript['source']
-            except KeyError: source = 'NA'
+            try:
+                source = transcript['source']
+            except KeyError:
+                source = 'NA'
             if source == 'RefSeq':
-                try: transcript_name = transcript['transcript']
-                except KeyError: transcript_name = 'NA'
-                try: bio_type = transcript['bioType']
-                except KeyError: bio_type = 'NA'
-                try: hgnc = transcript['hgnc']
-                except KeyError: hgnc = "NA"
-                try: hgvsc = transcript['hgvsc']
-                except KeyError: hgvsc = "NA"
-                try: hgvsp = transcript['hgvsp']
-                except KeyError: hgvsp = "NA"
+                try:
+                    transcript_name = transcript['transcript']
+                except KeyError:
+                    transcript_name = 'NA'
+                try:
+                    bio_type = transcript['bioType']
+                except KeyError:
+                    bio_type = 'NA'
+                try:
+                    hgnc = transcript['hgnc']
+                except KeyError:
+                    hgnc = "NA"
+                try:
+                    hgvsc = transcript['hgvsc']
+                except KeyError:
+                    hgvsc = "NA"
+                try:
+                    hgvsp = transcript['hgvsp']
+                except KeyError:
+                    hgvsp = "NA"
                 return (
                     transcript_name,
                     source,
@@ -128,14 +140,22 @@ def parse_clinvar(clinvar):
     clinvar_significance  -- the significance in the clinvar entry
     """
     if clinvar != 'NA':
-        try: clinvar_id = clinvar['id']
-        except KeyError: clinvar_id = 'NA'
-        try: clinvar_review_status = clinvar['reviewStatus']
-        except KeyError: clinvar_review_status = 'NA'
-        try: clinvar_phenotypes = clinvar['phenotypes']
-        except KeyError: clinvar_phenotypes = 'NA'
-        try: clinvar_significance = clinvar['significance']
-        except KeyError: clinvar_significance = 'NA'
+        try:
+            clinvar_id = clinvar['id']
+        except KeyError:
+            clinvar_id = 'NA'
+        try:
+            clinvar_review_status = clinvar['reviewStatus']
+        except KeyError:
+            clinvar_review_status = 'NA'
+        try:
+            clinvar_phenotypes = clinvar['phenotypes']
+        except KeyError:
+            clinvar_phenotypes = 'NA'
+        try:
+            clinvar_significance = clinvar['significance']
+        except KeyError:
+            clinvar_significance = 'NA'
     else:
         clinvar_id = clinvar
         clinvar_review_status = clinvar
@@ -167,12 +187,18 @@ def parse_clingen(clingen):
         clingen_phenotypes      -- the listed phenotypes for the clingen entry
     """
     if clingen != 'NA':
-        try: clingen_id = clingen['id']
-        except KeyError: clingen_id = 'NA'
-        try: clingen_interperitation = clingen['clinicalInterpretation']
-        except KeyError: clingen_interperitation = 'NA'
-        try: clingen_phenotypes = clingen['phenotypes']
-        except KeyError: clingen_phenotypes = 'NA'
+        try:
+            clingen_id = clingen['id']
+        except KeyError:
+            clingen_id = 'NA'
+        try:
+            clingen_interperitation = clingen['clinicalInterpretation']
+        except KeyError:
+            clingen_interperitation = 'NA'
+        try:
+            clingen_phenotypes = clingen['phenotypes']
+        except KeyError:
+            clingen_phenotypes = 'NA'
     else:
         clingen_id = clingen
         clingen_interperitation = clingen
@@ -195,7 +221,7 @@ def parse_variant(position):
     listed. Here we only take a small amount of the potential data for each
     variant, so it would be easy to add an additional `try, except` block and
     dictionary key, entry pair for a new piece of information as needed.
-    
+
     Keyword arguments:
 
     position -- the position dictionary
@@ -212,29 +238,45 @@ def parse_variant(position):
         ref = variant['refAllele']
         alt = variant['altAllele']
         var_type = variant['variantType']
-        try: 
+        try:
             hgvsg_vid = variant['hgvsg']
-        except KeyError: 
+        except KeyError:
             try:
                 hgvsg_vid = variant['vid']
             except KeyError:
                 hgvsg_vid = 'NA'
-        try: clinvar = parse_clinvar(clinvar = variant['clinvar'][0])
-        except KeyError: clinvar = parse_clinvar('NA')
-        try: dbsnp = variant['dbsnp'][0]
-        except KeyError: dbsnp = 'NA'
-        try: global_minor_allele_freq = variant['globalAllele']['globalMinorAlleleFrequency']
-        except KeyError: global_minor_allele_freq = 'NA'
-        try: gnomad = variant['gnomad']['allAf']
-        except KeyError: gnomad = 'NA'
-        try: onekg = variant['oneKg']['allAf']
-        except KeyError: onekg = 'NA'
-        try: revel = variant['revel']['score']
-        except KeyError: revel = 'NA'
-        try: topmed = variant['topmed']['allAf']
-        except KeyError: topmed = 'NA'
-        try: transcript = parse_transcripts(transcripts = variant['transcripts'])
-        except KeyError: transcript = parse_transcripts(transcripts = 'NA')
+        try:
+            clinvar = parse_clinvar(clinvar=variant['clinvar'][0])
+        except KeyError:
+            clinvar = parse_clinvar('NA')
+        try:
+            dbsnp = variant['dbsnp'][0]
+        except KeyError:
+            dbsnp = 'NA'
+        try:
+            global_minor_allele_freq = variant['globalAllele']['globalMinorAlleleFrequency']
+        except KeyError:
+            global_minor_allele_freq = 'NA'
+        try:
+            gnomad = variant['gnomad']['allAf']
+        except KeyError:
+            gnomad = 'NA'
+        try:
+            onekg = variant['oneKg']['allAf']
+        except KeyError:
+            onekg = 'NA'
+        try:
+            revel = variant['revel']['score']
+        except KeyError:
+            revel = 'NA'
+        try:
+            topmed = variant['topmed']['allAf']
+        except KeyError:
+            topmed = 'NA'
+        try:
+            transcript = parse_transcripts(transcripts=variant['transcripts'])
+        except KeyError:
+            transcript = parse_transcripts(transcripts='NA')
         variants.append({
             'Contig': contig,
             'Start': start,
@@ -270,7 +312,7 @@ def parse_position(data, var_type):
     filtering, but they also contain lists for the variants, and some other
     quality metrics. This function parses each position for an input json file
     and returns a list of dictionaries, one dictionary for each position.
-    
+
     Keyword arguments:
 
     data     -- the loaded json file/ data
@@ -283,20 +325,32 @@ def parse_position(data, var_type):
     positions = []
     for position in data['positions']:
         sample = position['samples'][0]
-        try: filter = position['filters']
-        except KeyError: filter = 'NA'
+        try:
+            filter = position['filters']
+        except KeyError:
+            filter = 'NA'
         if var_type == 'SNV':
-            try: mapping_quality = position['mappingQuality']
-            except KeyError: mapping_quality = 'NA'
-            try: variant_freq = sample['variantFrequencies']
-            except KeyError: variant_freq = 'NA'
-            try: total_depth = sample['totalDepth']
-            except KeyError: total_depth = 'NA'
-            try: allele_depths = sample['alleleDepths']
-            except KeyError: allele_depths = 'NA'
-            try: somatic_quality = sample['somaticQuality']
-            except KeyError: somatic_quality = 'NA'
-            variants = parse_variant(position = position)
+            try:
+                mapping_quality = position['mappingQuality']
+            except KeyError:
+                mapping_quality = 'NA'
+            try:
+                variant_freq = sample['variantFrequencies']
+            except KeyError:
+                variant_freq = 'NA'
+            try:
+                total_depth = sample['totalDepth']
+            except KeyError:
+                total_depth = 'NA'
+            try:
+                allele_depths = sample['alleleDepths']
+            except KeyError:
+                allele_depths = 'NA'
+            try:
+                somatic_quality = sample['somaticQuality']
+            except KeyError:
+                somatic_quality = 'NA'
+            variants = parse_variant(position=position)
             positions.append({
                 'Filter': filter,
                 'Mapping Quality': mapping_quality,
@@ -307,13 +361,19 @@ def parse_position(data, var_type):
                 'Variants': variants
             })
         elif var_type == 'SV':
-            try: split_read_counts = sample['splitReadCounts']
-            except KeyError: split_read_counts = 'NA'
-            try: paired_end_read_counts = sample['pairedEndReadCounts']
-            except KeyError: paired_end_read_counts = 'NA'
-            try: clingen = parse_clingen(position['clingen'][0])
-            except KeyError: clingen = parse_clingen('NA')
-            variants = parse_variant(position = position)
+            try:
+                split_read_counts = sample['splitReadCounts']
+            except KeyError:
+                split_read_counts = 'NA'
+            try:
+                paired_end_read_counts = sample['pairedEndReadCounts']
+            except KeyError:
+                paired_end_read_counts = 'NA'
+            try:
+                clingen = parse_clingen(position['clingen'][0])
+            except KeyError:
+                clingen = parse_clingen('NA')
+            variants = parse_variant(position=position)
             positions.append({
                 'Filter': filter,
                 'Split Read Counts': split_read_counts,
@@ -371,7 +431,7 @@ def parse_hits(positions, var_type):
                 'gnomAD': variant['gnomAD'],
                 'oneKG': variant['oneKG']
             }
-            if var_type == 'SNV':  
+            if var_type == 'SNV':
                 var_dict['Mapping Quality'] = position['Mapping Quality']
                 var_dict['Variant Frequency'] = position['Variant Frequency']
                 var_dict['Total Depth'] = position['Total Depth']
@@ -409,8 +469,8 @@ def parse_json(json_file, var_type):
     """
     with gzip.open(json_file, 'r') as j:
         data = json.load(j)
-        positions = parse_position(data = data, var_type = var_type)
-    df = parse_hits(positions = positions, var_type = var_type)
+        positions = parse_position(data=data, var_type=var_type)
+    df = parse_hits(positions=positions, var_type=var_type)
     return df
 
 
@@ -432,20 +492,20 @@ def parse_qc_csv(csv_file, qc_type):
     if qc_type == 'TMB':
         df = pd.read_csv(
             csv_file,
-            usecols=[2,3],
-            names = ['TMB Summary', 'Value']
+            usecols=[2, 3],
+            names=['TMB Summary', 'Value']
         )
     elif qc_type == 'SUMMARY':
         df = pd.read_csv(
             csv_file,
             skiprows=4,
-            names = ['DRAGEN Enrichment Summary Report', 'Value']
+            names=['DRAGEN Enrichment Summary Report', 'Value']
         )
     elif qc_type == 'COVERAGE':
         df = pd.read_csv(
             csv_file,
-            usecols=[2,3],
-            names = ['Coverage Summary', 'Value']
+            usecols=[2, 3],
+            names=['Coverage Summary', 'Value']
         )
     return df
 
@@ -488,7 +548,7 @@ def parse_bed(bed_file):
 def parse_cnv_seg(cnv_seg):
     """Pasing the seg file containing CNVs
 
-    This function breaks doen the seg file into individual dictionaries so
+    This function breaks down the seg file into individual dictionaries so
     that it can be merged with the data from the CNV json file.
 
     Keyword arguments:
@@ -536,7 +596,7 @@ def parse_cnv_seg(cnv_seg):
 def parse_cnv_json(cnv_json):
     """Pasing the json file containing CNVs
 
-    This function breaks doen the json file into individual dictionaries so
+    This function breaks down the json file into individual dictionaries so
     that it can be merged with the data from the CNV seg file.
 
     Keyword arguments:
@@ -562,21 +622,33 @@ def parse_cnv_json(cnv_json):
                     for transcript in variant['transcripts']:
                         if transcript['source'] == 'RefSeq':
                             source = transcript['source']
-                            try: transcript_name = transcript['transcript']
-                            except KeyError: transcript_name = 'NA'
-                            try: bio_type = transcript['bioType']
-                            except KeyError: bio_type = 'NA'
-                            try: hgnc = transcript['hgnc']
-                            except KeyError: hgnc = "NA"
+                            try:
+                                transcript_name = transcript['transcript']
+                            except KeyError:
+                                transcript_name = 'NA'
+                            try:
+                                bio_type = transcript['bioType']
+                            except KeyError:
+                                bio_type = 'NA'
+                            try:
+                                hgnc = transcript['hgnc']
+                            except KeyError:
+                                hgnc = "NA"
                             break
                     if source != 'RefSeq':
                         source = variant['transcripts'][0]['source']
-                        try: transcript_name = variant['transcripts'][0]['transcript']
-                        except KeyError: transcript_name = 'NA'
-                        try: bio_type = variant['transcripts'][0]['bioType']
-                        except KeyError: bio_type = 'NA'
-                        try: hgnc = variant['transcripts'][0]['hgnc']
-                        except KeyError: hgnc = "NA"
+                        try:
+                            transcript_name = variant['transcripts'][0]['transcript']
+                        except KeyError:
+                            transcript_name = 'NA'
+                        try:
+                            bio_type = variant['transcripts'][0]['bioType']
+                        except KeyError:
+                            bio_type = 'NA'
+                        try:
+                            hgnc = variant['transcripts'][0]['hgnc']
+                        except KeyError:
+                            hgnc = "NA"
                 except KeyError:
                     transcript_name = 'NA'
                     bio_type = 'NA'
@@ -613,16 +685,50 @@ def parse_cnvs(seg_cnvs, json_cnvs):
     seg_df = pd.DataFrame(seg_cnvs)
     seg_df['Start'] = seg_df['Start'] + 1
     json_df = pd.DataFrame(json_cnvs)
-    cnvs_df = pd.merge(seg_df, json_df, how = 'outer', on = ['Chromosome', 'Start', 'End'])
+    cnvs_df = pd.merge(seg_df, json_df, how='outer', on=['Chromosome', 'Start', 'End'])
     return cnvs_df
 
 
 def get_snp_id(snv_hits):
     """
     """
-    snps = ('rs1005533', 'rs1024116', 'rs1028528', 'rs10495407', 'rs10771010', 'rs11781516', 'rs13050660', 'rs1335873', 'rs1357617', 'rs1360288', 'rs136337', 'rs1382387', 'rs1413212', 'rs1454361', 'rs1463729', 'rs1468118', 'rs1493232', 'rs1982986', 'rs1994997', 'rs2010253', 'rs2040411', 'rs2046361', 'rs2056277', 'rs2076848', 'rs214054', 'rs2247221', 'rs2518968', 'rs251934', 'rs2714854', 'rs2831700', 'rs354439', 'rs3819854', 'rs717302', 'rs727811', 'rs729172', 'rs740910', 'rs8037429', 'rs826472', 'rs876724', 'rs891700', 'rs901398', 'rs914165', 'rs9583190', 'rs964681')
+    snps = ('rs1005533', 'rs1024116', 'rs1028528', 'rs10495407', 'rs10771010', 'rs11781516', 'rs13050660', 'rs1335873',
+            'rs1357617', 'rs1360288', 'rs136337', 'rs1382387', 'rs1413212', 'rs1454361', 'rs1463729', 'rs1468118',
+            'rs1493232', 'rs1982986', 'rs1994997', 'rs2010253', 'rs2040411', 'rs2046361', 'rs2056277', 'rs2076848',
+            'rs214054', 'rs2247221', 'rs2518968', 'rs251934', 'rs2714854', 'rs2831700', 'rs354439', 'rs3819854',
+            'rs717302', 'rs727811', 'rs729172', 'rs740910', 'rs8037429', 'rs826472', 'rs876724', 'rs891700', 'rs901398',
+            'rs914165', 'rs9583190', 'rs964681')
     snp_id_hits = snv_hits[snv_hits['dbSNP'].isin(snps)]
     return snp_id_hits
+
+
+def parse_cnv_filtered(cnv_hits):
+    """Passing the merged seg and json CNV dataframe
+
+        This functions uses the dataframe from the merged seg and json files to create a new
+        dataframe. This function removes data from the merged seg and json CNV dataframe that
+        does NOT meet the following requirements:
+
+        Segment_Mean >= 2.5 OR <=0.5
+        biotype != pseudogene
+        Filter = PASS
+
+        Keyword arguments:
+
+        cnv_hits -- the merged DataFrame of the seg and json CNVs
+
+        Return:
+
+        cnv_filtered -- the merged DataFrame of the seg and json CNVs filtered with the
+        given conditions.
+
+        Added by NYL
+        """
+
+    exclude_mean = [0.5, 2.5]
+    cnv_filtered = cnv_hits[(cnv_hits.bioType != 'pseudogene') & (cnv_hits.Filter == 'PASS')
+                            & (~cnv_hits.Segment_Mean.astype(float).isin(exclude_mean))]
+    return cnv_filtered
 
 
 def write_xlsx(data, sample_id):
@@ -639,14 +745,15 @@ def write_xlsx(data, sample_id):
     sample_id -- the sample id
     """
     with pd.ExcelWriter(f'{sample_id}.xlsx') as writer:
-        data[0].to_excel(writer, sheet_name = 'SNVs', index = False)
-        data[1].to_excel(writer, sheet_name = 'SNP_ID', index = False)
-        data[2].to_excel(writer, sheet_name = 'SVs', index = False)
-        data[3].to_excel(writer, sheet_name = 'CNVs', index = False)
-        data[4].to_excel(writer, sheet_name = 'TMB', index = False)
-        data[5].to_excel(writer, sheet_name = 'SUMMARY', index = False)
-        data[6].to_excel(writer, sheet_name = 'COVERAGE', index = False)
-        data[7].to_excel(writer, sheet_name = 'LOW COVERAGE', index = False)
+        data[0].to_excel(writer, sheet_name='SNVs', index=False)
+        data[1].to_excel(writer, sheet_name='SNP_ID', index=False)
+        data[2].to_excel(writer, sheet_name='SVs', index=False)
+        data[3].to_excel(writer, sheet_name='CNVs', index=False)
+        data[4].to_excel(writer, sheet_name='CNVs Filtered', index=False)
+        data[5].to_excel(writer, sheet_name='TMB', index=False)
+        data[6].to_excel(writer, sheet_name='SUMMARY', index=False)
+        data[7].to_excel(writer, sheet_name='COVERAGE', index=False)
+        data[8].to_excel(writer, sheet_name='LOW COVERAGE', index=False)
 
 
 def main():
@@ -676,53 +783,57 @@ def main():
     coverage_csv = f'{data_path}/{sample_id}.qc-coverage-region-1_coverage_metrics.csv'
     bed_file = f'{data_path}/{sample_id}.qc-coverage-region-1_read_cov_report.bed'
     snv_hits = parse_json(
-        json_file = snv_json,
-        var_type = 'SNV'
+        json_file=snv_json,
+        var_type='SNV'
     )
     snp_id_hits = get_snp_id(snv_hits)
     sv_hits = parse_json(
-        json_file = sv_json,
-        var_type = 'SV'
+        json_file=sv_json,
+        var_type='SV'
     )
     seg_cnvs = parse_cnv_seg(
-        cnv_seg = cnv_seg
+        cnv_seg=cnv_seg
     )
     json_cnvs = parse_cnv_json(
-        cnv_json = cnv_json
+        cnv_json=cnv_json
     )
     cnv_hits = parse_cnvs(
-        seg_cnvs = seg_cnvs,
-        json_cnvs = json_cnvs
+        seg_cnvs=seg_cnvs,
+        json_cnvs=json_cnvs
+    )
+    cnv_filter = parse_cnv_filtered(
+        cnv_hits=cnv_hits
     )
     tmb = parse_qc_csv(
-        csv_file = tmb_csv,
-        qc_type = 'TMB'
+        csv_file=tmb_csv,
+        qc_type='TMB'
     )
     summary = parse_qc_csv(
-        csv_file = summary_csv,
-        qc_type = 'SUMMARY'
+        csv_file=summary_csv,
+        qc_type='SUMMARY'
     )
     coverage = parse_qc_csv(
-        csv_file = coverage_csv,
-        qc_type = 'COVERAGE'
+        csv_file=coverage_csv,
+        qc_type='COVERAGE'
     )
     bed = parse_bed(
-        bed_file = bed_file
+        bed_file=bed_file
     )
     write_xlsx(
-        data = (
+        data=(
             snv_hits,
             snp_id_hits,
             sv_hits,
             cnv_hits,
+            cnv_filter,
             tmb,
             summary,
             coverage,
             bed
         ),
-        sample_id = sample_id
+        sample_id=sample_id
     )
-                
+
 
 if __name__ == '__main__':
     main()
