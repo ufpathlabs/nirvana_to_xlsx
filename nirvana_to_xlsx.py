@@ -1,4 +1,4 @@
-# !/usr/bin/env python3
+#!/usr/bin/env python3
 
 import argparse
 import json
@@ -755,6 +755,19 @@ def write_xlsx(data, sample_id):
         data[7].to_excel(writer, sheet_name='COVERAGE', index=False)
         data[8].to_excel(writer, sheet_name='LOW COVERAGE', index=False)
 
+def write_xlsx_cnv_filtered(data, sample_id):
+    """Write the output xlsx file
+
+    This function takes all the data generated from the merged seg and json files and creates
+    a second, separate Excel file and writes in the cnv_filter DataFrame.
+
+    Keyword arguments:
+
+    data      -- CNV filtered dataframe
+    sample_id -- the sample id
+    """
+    with pd.ExcelWriter(f'{sample_id}.cnv-filtered.xlsx') as writer:
+        data[0].to_excel(writer, sheet_name='CNVs Filtered', index=False)
 
 def main():
     """Main function that runs
@@ -830,6 +843,12 @@ def main():
             summary,
             coverage,
             bed
+        ),
+        sample_id=sample_id
+    )
+    write_xlsx_cnv_filtered(
+        data=(
+            cnv_filter,
         ),
         sample_id=sample_id
     )
