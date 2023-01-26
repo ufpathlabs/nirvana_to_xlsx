@@ -335,7 +335,7 @@ def parse_position(data, var_type):
             except KeyError:
                 mapping_quality = 'NA'
             try:
-                variant_freq = sample['variantFrequencies']
+                variant_freq = sample['variantFrequencies'][0]
             except KeyError:
                 variant_freq = 'NA'
             try:
