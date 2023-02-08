@@ -1,9 +1,10 @@
-# !/usr/bin/env python3
+#!/usr/bin/env python3
 
 import argparse
 import json
 import pandas as pd
 import gzip
+
 
 
 def parse_sample_id_args():
@@ -701,7 +702,6 @@ def get_snp_id(snv_hits):
     snp_id_hits = snv_hits[snv_hits['dbSNP'].isin(snps)]
     return snp_id_hits
 
-
 def parse_cnv_filtered(cnv_hits):
     """Passing the merged seg and json CNV dataframe
 
@@ -725,10 +725,200 @@ def parse_cnv_filtered(cnv_hits):
         Added by NYL
         """
 
-    exclude_mean = [0.5, 2.5]
-    cnv_filtered = cnv_hits[(cnv_hits.bioType != 'pseudogene') & (cnv_hits.Filter == 'PASS')
-                            & (~cnv_hits.Segment_Mean.astype(float).isin(exclude_mean))]
+    cnv_filtered = cnv_hits[(cnv_hits.bioType != 'pseudogene') & (cnv_hits.Filter == 'PASS') &
+                            ((cnv_hits.Segment_Mean.astype(float) < 0.65) |
+                             (cnv_hits.Segment_Mean.astype(float) > 1.9))]
+
+    # not sure if i want this or not. Will limit hits to high qual.
+    # cnv_filtered = cnv_filtered[(cnv_filtered['Qual'].astype(int) > 190) &
+    #                             (cnv_filtered['Segment_Mean'].astype(float) > 0.6) |
+    #                             (cnv_filtered['Segment_Mean'].astype(float) < 0.6) |
+    #                             (cnv_filtered['Segment_Mean'].astype(float) > 1.9)]
+
+    # keep genes in list
+    bed_files_dir = '/ext/path/DRL/Molecular/NGS21/Bioinformatic_Pipelines/SOPs_and_Version_Documentation/Files_to_run_localy/'
+    CNV_Filtered_Bed_File = pd.read_csv(f'{bed_files_dir}CNV_Filtered_Bed_File.csv')
+    CNV_Filtered_Bed_File_Keep = pd.read_csv(f'{bed_files_dir}CNV_Filtered_Bed_File.csv')
+
+    # checks to see if cnv calls are in the filtered gene list and keeps only rows that are in the filtered gene list
+    with pd.option_context("mode.chained_assignment", None):
+        for i, r in cnv_filtered.iterrows():
+            # noinspection PyTypeChecker
+            cnv_filtered.loc[i, 'in_filtered_gene_list'] = \
+                any((r.Chromosome == CNV_Filtered_Bed_File.Chromosome) & (r.Start > CNV_Filtered_Bed_File.Start) &
+                    (r.Start < CNV_Filtered_Bed_File.End)) | \
+                any((r.Chromosome == CNV_Filtered_Bed_File.Chromosome) &
+                    (r.End > CNV_Filtered_Bed_File.Start) & (r.End < CNV_Filtered_Bed_File.End)) | \
+                any((r.Chromosome == CNV_Filtered_Bed_File.Chromosome) & (r.Start < CNV_Filtered_Bed_File.Start) &
+                    (r.End > CNV_Filtered_Bed_File.Start)) | \
+                any((r.Chromosome == CNV_Filtered_Bed_File.Chromosome) & (r.Start > CNV_Filtered_Bed_File.End) &
+                    (r.End < CNV_Filtered_Bed_File.End))
+            if cnv_filtered.empty != True:
+                continue
+            else:
+                cnv_filtered = cnv_filtered[(cnv_filtered['in_filtered_gene_list'] == True)]
+
+    # filters the non-supprssor genes based on the more strict criteria (keeps <0.6 for non-suppressor and <0.75  if suppressor)
+    # and if > 1.9 for the oncogenes.
+    # changing true false in the sheet will define if reportable as an amp or del. If suppressor =TRUE then only report
+    # as a deletion. if oncogene = TRUE then only report as AMP if both are true, will report both.
+
+    suppressor_genes = CNV_Filtered_Bed_File_Keep.loc[CNV_Filtered_Bed_File_Keep['suppressor_gene'] == True]
+    Oncogenes = CNV_Filtered_Bed_File_Keep.loc[CNV_Filtered_Bed_File_Keep['Oncogene'] == True]
+    
+    with pd.option_context("mode.chained_assignment", None):
+        for i, r in cnv_filtered.iterrows():
+            # noinspection PyTypeChecker
+            cnv_filtered.loc[i, 'suppressor_gene'] = \
+                any((r.Chromosome == suppressor_genes.Chromosome) & (r.Start > suppressor_genes.Start) &
+                    (r.Start < suppressor_genes.End)) | \
+                any((r.Chromosome == suppressor_genes.Chromosome) &
+                    (r.End > suppressor_genes.Start) & (r.End < suppressor_genes.End)) | \
+                any((r.Chromosome == suppressor_genes.Chromosome) & (r.Start < suppressor_genes.Start) &
+                    (r.End > suppressor_genes.Start)) | \
+                any((r.Chromosome == suppressor_genes.Chromosome) & (r.Start > suppressor_genes.End) &
+                    (r.End < suppressor_genes.End))
+
+    with pd.option_context("mode.chained_assignment", None):
+        for i, r in cnv_filtered.iterrows():
+            # noinspection PyTypeChecker
+            cnv_filtered.loc[i, 'Oncogene'] = \
+                any((r.Chromosome == Oncogenes.Chromosome) & (r.Start > Oncogenes.Start) &
+                    (r.Start < Oncogenes.End)) | \
+                any((r.Chromosome == Oncogenes.Chromosome) &
+                    (r.End > Oncogenes.Start) & (r.End < Oncogenes.End)) | \
+                any((r.Chromosome == Oncogenes.Chromosome) & (r.Start < Oncogenes.Start) &
+                    (r.End > Oncogenes.Start)) | \
+                any((r.Chromosome == Oncogenes.Chromosome) & (r.Start > Oncogenes.End) &
+                    (r.End < Oncogenes.End))
+
+    with pd.option_context("mode.chained_assignment", None):
+        cnv_filtered['Segment_Mean'] = pd.to_numeric(cnv_filtered['Segment_Mean'], errors='coerce')
+
+    cnv_filtered = cnv_filtered[(cnv_filtered['suppressor_gene'].astype(str) == 'True') &
+                                (cnv_filtered['Segment_Mean'].astype(float) < 1) |
+                                (cnv_filtered['Oncogene'].astype(str) == 'True') &
+                                (cnv_filtered['Segment_Mean'].astype(float) > 1)]
+
+    # creates a new bed file with the segment hits so this can me merged with the segemnts so
+    # we can add the gene names for each region
+    with pd.option_context("mode.chained_assignment", None):
+        for i, r in CNV_Filtered_Bed_File.iterrows():
+            # noinspection PyTypeChecker
+            CNV_Filtered_Bed_File.loc[i, 'in_cnv_filtered'] = \
+                any((r.Chromosome == cnv_filtered.Chromosome) & (r.Start > cnv_filtered.Start) & (
+                            r.Start < cnv_filtered.End)) | \
+                any((r.Chromosome == cnv_filtered.Chromosome) & (r.End > cnv_filtered.Start) & (
+                            r.End < cnv_filtered.End))
+
+    # keeps the rows in the filtered bed file
+    CNV_Filtered_Bed_File = CNV_Filtered_Bed_File[(CNV_Filtered_Bed_File['in_cnv_filtered'] == True)]
+
+    # merges the two together so we can have the gene names and sorts the data so the gene names show up near the correct region
+    cnv_filtered = cnv_filtered.append(CNV_Filtered_Bed_File)
+    cnv_filtered = cnv_filtered.sort_values(by=['Sample']).fillna('').drop(
+        columns=['in_filtered_gene_list', 'in_cnv_filtered'])
+    cnv_filtered["Genes"] = cnv_filtered['hgnc'].astype(str) + cnv_filtered['hgnc_symbol']
+    cnv_filtered['Sum'] = cnv_filtered['Start'] + cnv_filtered['End']
+    cnv_filtered = cnv_filtered.sort_values(by=['Chromosome', 'Sum', 'Start'], ascending=[True, True, False])
+    cnv_filtered['Reportable_gene'] = cnv_filtered['Genes'].isin(CNV_Filtered_Bed_File_Keep['hgnc_symbol'])
+
+    # data to display
+    cnv_filtered = cnv_filtered[
+        ['Sample', 'Chromosome', 'Start', 'End', 'Num_Targets', 'Segment_Mean', 'suppressor_gene', 'Oncogene',
+         'cytogeneticBand', 'Genes', 'Reportable_gene', 'Qual', 'variantType', 'Segment_Call', 'Filter',
+         'Copy_Number', 'Ploidy', 'Improper_Pairs','svLength', 'transcript', 'bioType']]
+
     return cnv_filtered
+
+def write_updated_cnv_vcf(cnv_filter, cnv_vcf):
+    """this function writes the cnv outfile based on the filtered calls"""
+
+# turn all empty cells to nan so can use fillna later
+    short_cnv_list = cnv_filter.mask(cnv_filter == '')
+
+#make sure empty segment mean gets filled so it can be uploaded as vcf
+    short_cnv_list['Segment_Mean'] = short_cnv_list.groupby(['Chromosome','Genes'], sort=False)['Segment_Mean'].apply(lambda x: x.ffill().bfill())
+    short_cnv_list['Segment_Mean'] = short_cnv_list.groupby(['Chromosome'], sort=False)['Segment_Mean'].apply(lambda x: x.ffill().bfill())
+    short_cnv_list['svLength'] = short_cnv_list.groupby(['Chromosome',], sort=False)['svLength'].apply(lambda x: x.ffill().bfill())
+    short_cnv_list['variantType'] = short_cnv_list.groupby(['Chromosome'], sort=False)['variantType'].apply(lambda x: x.ffill().bfill())
+    short_cnv_list['Improper_Pairs'] = short_cnv_list.groupby(['Chromosome'], sort=False)['Improper_Pairs'].apply(lambda x: x.ffill().bfill())
+    short_cnv_list['Qual'] = short_cnv_list.groupby(['Chromosome'], sort=False)['Qual'].apply(lambda x: x.ffill().bfill())
+    short_cnv_list['Num_Targets'] = short_cnv_list.groupby(['Chromosome'], sort=False)['Num_Targets'].apply(lambda x: x.ffill().bfill())
+    short_cnv_list['Filter'] = short_cnv_list.groupby(['Chromosome'], sort=False)['Filter'].apply(lambda x: x.ffill().bfill())
+
+# find start and end for genes with multiple calls and merge segment means
+    start_min_value = short_cnv_list.groupby(['Genes','cytogeneticBand']).Start.min().to_frame()
+    end_max_value = short_cnv_list.groupby(['Genes','cytogeneticBand']).End.max().to_frame()
+    seg_mean_average = short_cnv_list.groupby(['Genes','cytogeneticBand']).Segment_Mean.mean().to_frame()
+    update_data = pd.merge(pd.merge(start_min_value, end_max_value, on=['Genes','cytogeneticBand']),seg_mean_average,on=['Genes','cytogeneticBand'])
+
+#add in min max start and merged segment mean for merged genes
+
+    short_cnv_list = short_cnv_list.merge(update_data, on=['Genes','cytogeneticBand'], how='outer')
+    short_cnv_list['Start_y'] = short_cnv_list['Start_y'].fillna(short_cnv_list['Start_x'])
+    short_cnv_list['End_y'] = short_cnv_list['End_y'].fillna(short_cnv_list['End_x'])
+    short_cnv_list['Segment_Mean_y'] = short_cnv_list['Segment_Mean_y'].fillna(short_cnv_list['Segment_Mean_x'])
+    short_cnv_list = short_cnv_list.drop(['Start_x','End_x','Segment_Mean_x'], axis=1)
+    short_cnv_list = short_cnv_list.rename(columns={"Start_y":"Start","End_y":"End","Segment_Mean_y":"Segment_Mean"})
+
+#update Start and end to numeric
+    short_cnv_list.Start = pd.to_numeric(short_cnv_list.Start, errors='coerce')
+    short_cnv_list.End = pd.to_numeric(short_cnv_list.End, errors='coerce')
+
+#keep only unique records for vcf upload. keep highest qual if there is a duplicate
+
+    short_cnv_list.Qual = pd.to_numeric(short_cnv_list.Qual, errors='coerce')
+    #short_cnv_list = short_cnv_list.sort_values('Qual', ascending=False).drop_duplicates('Genes', keep='first')
+    short_cnv_list = short_cnv_list.sort_values('cytogeneticBand', ascending=False).drop_duplicates('Genes', keep='last')
+    short_cnv_list.drop(short_cnv_list[short_cnv_list['Reportable_gene'] == False].index, inplace=True)
+
+#filter out any calls not following suppressor/oncogene ruls
+    short_cnv_list = short_cnv_list[(short_cnv_list['suppressor_gene'].astype(str) == 'True') &
+                                    (short_cnv_list['Segment_Mean'].astype(float) < 1) |
+                                    (short_cnv_list['Oncogene'].astype(str) == 'True') &
+                                    (short_cnv_list['Segment_Mean'].astype(float) > 1)]
+
+#add columns for vcf info and turn svLenght to intiger so it will load to qci
+    ID2_mapping = {'copy_number_loss': 'LOSS', 'copy_number_gain': 'GAIN'}
+    ALT_mapping = {'copy_number_loss': '<DEL>', 'copy_number_gain': '<DUP>'}
+    with pd.option_context('mode.chained_assignment', None):
+        short_cnv_list['ID2'] = short_cnv_list['variantType'].replace(ID2_mapping)
+        short_cnv_list['ALT'] = short_cnv_list['variantType'].replace(ALT_mapping)
+        short_cnv_list['svLength'] = short_cnv_list['svLength'].astype(int)
+        short_cnv_list['Start'] = short_cnv_list['Start'].astype(int)
+        short_cnv_list['End'] = short_cnv_list['End'].astype(int)
+        short_cnv_list['Length'] = (short_cnv_list['Start'] - short_cnv_list['End']).abs()
+
+#pulls the cnvs and formats vcf style for qci upload
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+#chr10	89623194	DRAGEN:LOSS:chr10:89623194-89728532	N	<DEL>	200	PASS	END=89728532;REFLEN=1152500;SVTYPE=CNV;SVLEN=1152500	GT:FC:BC:PE	./.:0.33224369780928004:20:50,1
+
+    cnvs = short_cnv_list.apply(lambda x: f"{x['Chromosome']}\t{x['Start']}\t DRAGEN:{x['ID2']}:{x['Chromosome']}:"
+                                          f"{x['Start']}-{x['End']}\tN\t{x['ALT']}\t{x['Qual']}\t{x['Filter']}\t"
+                                          f"END={x['End']};REFLEN={x['Length']};SVTYPE=CNV;SVLEN={x['Length']}"
+                                          f"\tGT:FC:BC:PE\t./.:{x['Segment_Mean']}:{x['Num_Targets']}:{x['Improper_Pairs']}", axis=1)
+
+
+#get the CNV.VCF header
+    with gzip.open(cnv_vcf, 'rt') as cnvfile, open(f'{cnv_vcf}_FILTERED.CNV.VCF', 'w') as CNV_header:
+        for line in cnvfile:
+            if '#' in line:
+                CNV_header.write(line)
+
+#replace SM with FC
+    with open(f'{cnv_vcf}_FILTERED.CNV.VCF', 'r') as update_header:
+        update = update_header.read()
+        update = update.replace('SM','FC')
+    with open(f'{cnv_vcf}_FILTERED.CNV.VCF', 'w') as update_header:
+        update_header.write(update)
+
+# append the variants
+    with open(f'{cnv_vcf}_FILTERED.CNV.VCF', 'a') as out_cnv_vcf:
+        for cnv in cnvs:
+            if not cnvs.empty:
+                out_cnv_vcf.write(cnv)
+                out_cnv_vcf.write('\n')
 
 
 def write_xlsx(data, sample_id):
@@ -778,6 +968,7 @@ def main():
     sv_json = f'{data_path}/{sample_id}.sv.annotations.json.gz'
     cnv_json = f'{data_path}/{sample_id}.cnv.annotations.json.gz'
     cnv_seg = f'{data_path}/{sample_id}.seg.called.merged'
+    cnv_vcf = f'{data_path}/{sample_id}.cnv.vcf.gz'
     tmb_csv = f'{data_path}/{sample_id}.tmb.metrics.csv'
     summary_csv = f'{data_path}/Additional Files/{sample_id}.summary.csv'
     coverage_csv = f'{data_path}/{sample_id}.qc-coverage-region-1_coverage_metrics.csv'
@@ -834,6 +1025,7 @@ def main():
         sample_id=sample_id
     )
 
+    write_updated_cnv_vcf(cnv_filter, cnv_vcf)
 
 if __name__ == '__main__':
     main()
