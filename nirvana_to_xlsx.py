@@ -956,8 +956,26 @@ def write_xlsx_cnv_filtered(data, sample_id):
     data      -- CNV filtered dataframe
     sample_id -- the sample id
     """
-    with pd.ExcelWriter(f'{sample_id}.cnv-filtered.xlsx') as writer:
-        data[0].to_excel(writer, sheet_name='CNVs Filtered', index=False)
+#     with pd.ExcelWriter(f'{sample_id}.cnv-filtered.xlsx') as writer:
+#         data[0].to_excel(writer, sheet_name='CNVs Filtered', index=False)
+# # need this part to be sample agnostic. It will have all data from all files in run
+
+#check to see if file exists. If it does not, then create the file. If it does, just add the data
+    # exists = os.path.isfile('CNV-filtered_SUMMARY.xlsx')
+    # if not exists:
+    #     with pd.ExcelWriter(f'CNV-filtered_SUMMARY.xlsx', engine="openpyxl", mode="w") as writer:
+    #         data[0].to_excel(writer, sheet_name='CNVs_Filtered', index=False)
+    # else:
+    #     with pd.ExcelWriter(f'CNV-filtered_SUMMARY.xlsx', engine="openpyxl", mode="a", if_sheet_exists="overlay") as writer:
+    #         data[0].to_excel(writer, sheet_name='CNVs_Filtered', if_sheet_exists="overlay", header=False, index=False)
+
+#cant get .xlsx to work try .csv
+    exists = os.path.isfile('CNV-filtered_SUMMARY.csv')
+    if not exists:
+        data[0].to_csv(f'CNV-filtered_SUMMARY.csv', encoding='utf-8', index=False)
+    else:
+        data[0].to_csv('CNV-filtered_SUMMARY.csv', mode='a', index=False, header=False)
+
 
 def main():
     """Main function that runs
