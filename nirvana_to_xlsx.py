@@ -4,6 +4,9 @@ import argparse
 import json
 import pandas as pd
 import gzip
+import os
+import openpyxl
+import xlsxwriter
 
 
 
@@ -687,8 +690,47 @@ def parse_cnvs(seg_cnvs, json_cnvs):
     seg_df['Start'] = seg_df['Start'] + 1
     json_df = pd.DataFrame(json_cnvs)
     cnvs_df = pd.merge(seg_df, json_df, how='outer', on=['Chromosome', 'Start', 'End'])
+
     return cnvs_df
 
+def add_tmb(tmb_trace, snv_hits):
+    """This function creates a DataFrame from the tmb trace file and then merges with SNV hits based on
+    their chromosome, starts, and stops. The tmb trace file returns the data decision for marking a variant for
+    TMB counts.
+
+    Keyword arguments: tmb_trace, snv_hits
+
+    Return: snv_tmb_merge -- the merged DataFrame of the snv hits and the tmb trace data
+    """
+    #pull in the trace tmb file and use cols listed
+    tmb_df = pd.read_csv(tmb_trace, sep='\t', usecols= ['Chromosome','Position','RefAllele','AltAllele','VAF',
+                                                        'VariantType','TotalDepth','DbMaxAlleleCount',
+                                                        'CosmicMaxCount','withinValidTmbRegion','tmbCandidate',
+                                                        'nonsyn','databaseFilter','proxiFilter','tmbVariant',
+                                                        'withinValidNonsynRegion'])
+    #rename the tmbdf to match teh snv df
+    tmb_df.rename(columns={"Chromosome": "Contig", "Position": "Start", "RefAllele": "Ref Allele"}, inplace=True)
+
+    #pull in the snv df want to add the trace tmb data to
+    snv_df = pd.DataFrame(snv_hits)
+
+    #match data types
+    tmb_df['Contig'] = tmb_df['Contig'].astype(object)
+    tmb_df['Start'] = pd.to_numeric(tmb_df['Start'].replace(',','', regex=True), errors='coerce')
+    tmb_df['Start'] = tmb_df['Start'].astype('int64', errors='ignore')
+
+    #if VatriatType = deletion/indel then + 1 to the position
+    pd.options.mode.chained_assignment = None
+    tmb_df['Start'][(tmb_df['VariantType'] == 'INSERTION')] = tmb_df['Start'] + 1
+    tmb_df['Start'][(tmb_df['VariantType'] == 'DELETION')] = tmb_df['Start'] + 1
+    snv_df['Start'][(snv_df['Variant Type'] == 'indel')] = snv_df['Start'] + 1
+
+    #merge the datframes
+    snv_tmb_merge = pd.merge(snv_df, tmb_df, how='outer', on=['Contig', 'Start'])
+    snv_tmb_merge = snv_tmb_merge.sort_values(by=['tmbVariant','nonsyn'], ascending=False)
+    snv_tmb_merge.fillna(0, inplace=True)
+
+    return snv_tmb_merge
 
 def get_snp_id(snv_hits):
     """
@@ -736,6 +778,7 @@ def parse_cnv_filtered(cnv_hits):
     #                             (cnv_filtered['Segment_Mean'].astype(float) > 1.9)]
 
     # keep genes in list
+    #bed_files_dir = '/Volumes/files/PATH/DRL/Molecular/NGS21/Bioinformatic_Pipelines/SOPs_and_Version_Documentation/Files_to_run_localy/'
     bed_files_dir = '/ext/path/DRL/Molecular/NGS21/Bioinformatic_Pipelines/SOPs_and_Version_Documentation/Files_to_run_localy/'
     CNV_Filtered_Bed_File = pd.read_csv(f'{bed_files_dir}CNV_Filtered_Bed_File.csv')
     CNV_Filtered_Bed_File_Keep = pd.read_csv(f'{bed_files_dir}CNV_Filtered_Bed_File.csv')
@@ -941,9 +984,48 @@ def write_xlsx(data, sample_id):
         data[3].to_excel(writer, sheet_name='CNVs', index=False)
         data[4].to_excel(writer, sheet_name='CNVs Filtered', index=False)
         data[5].to_excel(writer, sheet_name='TMB', index=False)
-        data[6].to_excel(writer, sheet_name='SUMMARY', index=False)
-        data[7].to_excel(writer, sheet_name='COVERAGE', index=False)
-        data[8].to_excel(writer, sheet_name='LOW COVERAGE', index=False)
+        data[6].to_excel(writer, sheet_name='TMB_FILTER', index=False)
+        data[7].to_excel(writer, sheet_name='SUMMARY', index=False)
+        data[8].to_excel(writer, sheet_name='COVERAGE', index=False)
+        data[9].to_excel(writer, sheet_name='LOW COVERAGE', index=False)
+
+        # filter the TMB_Filter tab to only show tmb variants
+        # Get the xlsxwriter worksheet objects.
+        workbook = writer.book
+        worksheet = writer.sheets['TMB_FILTER']
+        # Get the dimensions of the dataframe.
+        (max_row, max_col) = data[6].shape
+
+
+        # Set the autofilter
+        worksheet.autofilter(0, 0, max_row, max_col - 1)
+
+        # Add filter criteria
+        worksheet.filter_column('AP', 'tmbVariant == 1')
+        worksheet.filter_column('AM', 'nonsyn == 1')
+        worksheet.filter_column('N', "Filter == ['PASS']")
+
+        # It isn't enough to just apply the criteria. The rows that don't match
+        # must also be hidden. We use Pandas to figure our which rows to hide.
+        #need to reset the index for this to function
+        data[6].reset_index(drop=True, inplace=True)
+
+        #turns cells green
+        format1 = workbook.add_format({'bg_color': '#CCEECE', 'font_color': '#225F00'})
+
+        #this adds lines around all squares if want to add
+        #border_fmt = workbook.add_format({'bottom': 1, 'top': 1, 'left': 1, 'right': 1})
+
+        for r in (data[6].index[(data[6]['nonsyn'] == 1)].tolist()):
+            worksheet.set_row(r + 1, None, format1)
+
+        for row_num in (data[6].index[(data[6]['tmbVariant'] != 1)].tolist()):
+            worksheet.set_row(row_num + 1, options={'hidden': True})
+
+        # if want to hide nonsyn instead of highlighting tmbvariants, use this
+        # for row_num in (data[6].index[(data[6]['nonsyn'] != 1)].tolist()):
+        #     worksheet.set_row(row_num + 1, options={'hidden': True})
+
 
 def write_xlsx_cnv_filtered(data, sample_id):
     """Write the output xlsx file
@@ -956,25 +1038,14 @@ def write_xlsx_cnv_filtered(data, sample_id):
     data      -- CNV filtered dataframe
     sample_id -- the sample id
     """
-#     with pd.ExcelWriter(f'{sample_id}.cnv-filtered.xlsx') as writer:
-#         data[0].to_excel(writer, sheet_name='CNVs Filtered', index=False)
-# # need this part to be sample agnostic. It will have all data from all files in run
-
-#check to see if file exists. If it does not, then create the file. If it does, just add the data
-    # exists = os.path.isfile('CNV-filtered_SUMMARY.xlsx')
-    # if not exists:
-    #     with pd.ExcelWriter(f'CNV-filtered_SUMMARY.xlsx', engine="openpyxl", mode="w") as writer:
-    #         data[0].to_excel(writer, sheet_name='CNVs_Filtered', index=False)
-    # else:
-    #     with pd.ExcelWriter(f'CNV-filtered_SUMMARY.xlsx', engine="openpyxl", mode="a", if_sheet_exists="overlay") as writer:
-    #         data[0].to_excel(writer, sheet_name='CNVs_Filtered', if_sheet_exists="overlay", header=False, index=False)
 
 #cant get .xlsx to work try .csv
     exists = os.path.isfile('CNV-filtered_SUMMARY.csv')
     if not exists:
-        data[0].to_csv(f'CNV-filtered_SUMMARY.csv', encoding='utf-8', index=False)
+        data[0].to_csv('CNV-filtered_SUMMARY.csv', encoding='utf-8', index=False)
     else:
         data[0].to_csv('CNV-filtered_SUMMARY.csv', mode='a', index=False, header=False)
+
 
 
 def main():
@@ -1001,6 +1072,7 @@ def main():
     cnv_seg = f'{data_path}/{sample_id}.seg.called.merged'
     cnv_vcf = f'{data_path}/{sample_id}.cnv.vcf.gz'
     tmb_csv = f'{data_path}/{sample_id}.tmb.metrics.csv'
+    tmb_trace = f'{data_path}/{sample_id}.tmb.trace.tsv'
     summary_csv = f'{data_path}/Additional Files/{sample_id}.summary.csv'
     coverage_csv = f'{data_path}/{sample_id}.qc-coverage-region-1_coverage_metrics.csv'
     bed_file = f'{data_path}/{sample_id}.qc-coverage-region-1_read_cov_report.bed'
@@ -1041,6 +1113,8 @@ def main():
     bed = parse_bed(
         bed_file=bed_file
     )
+    snv_tmb_merge = add_tmb(tmb_trace, snv_hits)
+
     write_xlsx(
         data=(
             snv_hits,
@@ -1049,6 +1123,7 @@ def main():
             cnv_hits,
             cnv_filter,
             tmb,
+            snv_tmb_merge,
             summary,
             coverage,
             bed
@@ -1063,6 +1138,7 @@ def main():
     )
 
     write_updated_cnv_vcf(cnv_filter, cnv_vcf)
+
 
 if __name__ == '__main__':
     main()
