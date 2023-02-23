@@ -884,6 +884,7 @@ def write_updated_cnv_vcf(cnv_filter, cnv_vcf):
     short_cnv_list['Segment_Mean'] = short_cnv_list.groupby(['Chromosome','Genes'], sort=False)['Segment_Mean'].apply(lambda x: x.ffill().bfill())
     short_cnv_list['Segment_Mean'] = short_cnv_list.groupby(['Chromosome'], sort=False)['Segment_Mean'].apply(lambda x: x.ffill().bfill())
     short_cnv_list['svLength'] = short_cnv_list.groupby(['Chromosome',], sort=False)['svLength'].apply(lambda x: x.ffill().bfill())
+    short_cnv_list['variantType'] = short_cnv_list.groupby(['Chromosome', 'Genes'], sort=False)['variantType'].apply(lambda x: x.ffill().bfill())
     short_cnv_list['variantType'] = short_cnv_list.groupby(['Chromosome'], sort=False)['variantType'].apply(lambda x: x.ffill().bfill())
     short_cnv_list['Improper_Pairs'] = short_cnv_list.groupby(['Chromosome'], sort=False)['Improper_Pairs'].apply(lambda x: x.ffill().bfill())
     short_cnv_list['Qual'] = short_cnv_list.groupby(['Chromosome'], sort=False)['Qual'].apply(lambda x: x.ffill().bfill())
