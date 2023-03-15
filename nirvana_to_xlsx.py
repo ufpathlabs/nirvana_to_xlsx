@@ -874,6 +874,29 @@ def parse_cnv_filtered(cnv_hits):
 
     return cnv_filtered
 
+def out_corrected_cnv_filtered(cnv_filter):
+    """This function adds the data needed for the excel sheet but doesnt mess up the write updated cnv vcf function"""
+    out_correct_cnv = cnv_filter.mask(cnv_filter == '')
+
+# make sure empty segment mean gets filled so it can be uploaded as vcf
+    out_correct_cnv['Segment_Mean'] = out_correct_cnv.groupby(['Chromosome', 'Genes'], sort=False)['Segment_Mean'].apply(lambda x: x.ffill().bfill())
+    out_correct_cnv['Segment_Mean'] = out_correct_cnv.groupby(['Chromosome'], sort=False)['Segment_Mean'].apply(lambda x: x.ffill().bfill())
+    #out_correct_cnv['svLength'] = out_correct_cnv.groupby(['Chromosome'], sort=False)['svLength'].apply(lambda x: x.ffill().bfill())
+    out_correct_cnv['variantType'] = out_correct_cnv.groupby(['Chromosome', 'Genes'], sort=False)['variantType'].apply(lambda x: x.ffill().bfill())
+    out_correct_cnv['variantType'] = out_correct_cnv.groupby(['Chromosome'], sort=False)['variantType'].apply(lambda x: x.ffill().bfill())
+    #out_correct_cnv['Improper_Pairs'] = out_correct_cnv.groupby(['Chromosome'], sort=False)['Improper_Pairs'].apply(lambda x: x.ffill().bfill())
+    #out_correct_cnv['Qual'] = out_correct_cnv.groupby(['Chromosome', 'Genes'], sort=False)['Qual'].apply(lambda x: x.ffill().bfill())
+    #out_correct_cnv['Num_Targets'] = out_correct_cnv.groupby(['Chromosome', 'Genes'], sort=False)['Num_Targets'].apply(lambda x: x.ffill().bfill())
+    #out_correct_cnv['Filter'] = out_correct_cnv.groupby(['Chromosome'], sort=False)['Filter'].apply(lambda x: x.ffill().bfill())
+
+    # filter out any calls not following suppressor/oncogene ruls
+    out_correct_cnv = out_correct_cnv[(out_correct_cnv['suppressor_gene'].astype(str) == 'True') &
+                                    (out_correct_cnv['Segment_Mean'].astype(float) < 1) |
+                                    (out_correct_cnv['Oncogene'].astype(str) == 'True') &
+                                    (out_correct_cnv['Segment_Mean'].astype(float) > 1)]
+    return out_correct_cnv
+
+
 def write_updated_cnv_vcf(cnv_filter, cnv_vcf):
     """this function writes the cnv outfile based on the filtered calls"""
 
@@ -1114,7 +1137,11 @@ def main():
     bed = parse_bed(
         bed_file=bed_file
     )
+
+    write_updated_cnv_vcf(cnv_filter, cnv_vcf)
+    out_corrected_cnv_filtered(cnv_filter)
     snv_tmb_merge = add_tmb(tmb_trace, snv_hits)
+    out_correct_cnv = out_corrected_cnv_filtered(cnv_filter)
 
     write_xlsx(
         data=(
@@ -1122,7 +1149,7 @@ def main():
             snp_id_hits,
             sv_hits,
             cnv_hits,
-            cnv_filter,
+            out_correct_cnv,
             tmb,
             snv_tmb_merge,
             summary,
@@ -1133,12 +1160,11 @@ def main():
     )
     write_xlsx_cnv_filtered(
         data=(
-            cnv_filter,
+            out_correct_cnv,
         ),
         sample_id=sample_id
     )
 
-    write_updated_cnv_vcf(cnv_filter, cnv_vcf)
 
 
 if __name__ == '__main__':
